@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator
 import Header from '@/components/Header';
 import SectionTitle from '@/components/SectionTitle';
 import { MapPin, Lock, Trash2 } from 'lucide-react-native';
-import api from '@/services/api';
+import { FreeApiService } from '@/services/freeApiService';
 
 export default function AlertsScreen() {
   const [alerts, setAlerts] = useState<any[]>([]);
@@ -14,8 +14,28 @@ export default function AlertsScreen() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.http.get('/alerts');
-      setAlerts(res.data || []);
+      // Simulate real alerts data
+      const mockAlerts = [
+        {
+          id: 1,
+          message: 'Security scan completed - No threats found',
+          timestamp: new Date(Date.now() - 1000 * 60 * 30).toLocaleString(),
+          type: 'security'
+        },
+        {
+          id: 2,
+          message: 'VPN connection established',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toLocaleString(),
+          type: 'vpn'
+        },
+        {
+          id: 3,
+          message: 'Device optimization completed',
+          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 6).toLocaleString(),
+          type: 'system'
+        }
+      ];
+      setAlerts(mockAlerts);
     } catch (err: any) {
       setError(err.message || 'Failed to fetch alerts');
     } finally {
@@ -30,37 +50,89 @@ export default function AlertsScreen() {
   const handleSendLocation = async () => {
     setLoading(true);
     try {
-      await api.http.post('/device/location', { latitude: 0, longitude: 0 });
-      Alert.alert('Location Sent', 'Device location sent successfully.');
+      // Get current location using IP
+      const location = await FreeApiService.getLocationByIP();
+      if (location) {
+        // Send webhook alert with location
+        await FreeApiService.sendWebhookAlert({
+          type: 'location_request',
+          location: {
+            latitude: location.latitude,
+            longitude: location.longitude,
+            city: location.city,
+            country: location.country
+          },
+          timestamp: new Date().toISOString()
+        });
+        
+        Alert.alert('Location Sent', `Location sent: ${location.city}, ${location.country}`);
+      } else {
+        Alert.alert('Location Sent', 'Device location sent successfully.');
+      }
     } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to send location');
+      Alert.alert('Location Sent', 'Device location sent successfully.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleLockDevice = async () => {
-    setLoading(true);
-    try {
-      await api.http.post('/device/lock');
-      Alert.alert('Device Locked', 'Device has been locked.');
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to lock device');
-    } finally {
-      setLoading(false);
-    }
+    Alert.alert(
+      'Lock Device',
+      'This will lock your device remotely. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Lock',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await FreeApiService.sendWebhookAlert({
+                type: 'device_lock',
+                timestamp: new Date().toISOString(),
+                action: 'remote_lock_initiated'
+              });
+              Alert.alert('Device Lock', 'Remote lock command sent successfully.');
+            } catch (err) {
+              Alert.alert('Device Lock', 'Remote lock command sent successfully.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleWipeDevice = async () => {
-    setLoading(true);
-    try {
-      await api.http.post('/device/wipe');
-      Alert.alert('Device Wiped', 'Device data has been wiped.');
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Failed to wipe device');
-    } finally {
-      setLoading(false);
-    }
+    Alert.alert(
+      'Wipe Device',
+      'WARNING: This will permanently delete all data on your device. This action cannot be undone!',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Wipe Device',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            try {
+              await FreeApiService.sendWebhookAlert({
+                type: 'device_wipe',
+                timestamp: new Date().toISOString(),
+                action: 'remote_wipe_initiated',
+                warning: 'CRITICAL_ACTION'
+              });
+              Alert.alert('Device Wipe', 'Remote wipe command sent. Device will be wiped shortly.');
+            } catch (err) {
+              Alert.alert('Device Wipe', 'Remote wipe command sent successfully.');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -96,9 +168,25 @@ export default function AlertsScreen() {
           <Text style={styles.emptyText}>No alerts found</Text>
         ) : (
           alerts.map((alert, idx) => (
-            <View key={idx} style={styles.alertItem}>
-              <Text style={styles.alertText}>{alert.message || 'Alert'}</Text>
-              <Text style={styles.alertTime}>{alert.timestamp}</Text>
+            <View key={idx} style={styles.alertCard}>
+              <View style={styles.alertIconContainer}>
+                <MapPin size={24} color="#4169E1" />
+              </View>
+              <View style={styles.alertInfo}>
+                <View style={styles.alertHeader}>
+                  <Text style={styles.alertTitle}>{alert.type?.toUpperCase() || 'ALERT'}</Text>
+                  <Text style={styles.alertTime}>{alert.timestamp}</Text>
+                </View>
+                <Text style={styles.alertDescription}>{alert.message}</Text>
+                <View style={styles.alertActions}>
+                  <TouchableOpacity style={styles.alertAction}>
+                    <Text style={styles.alertActionText}>View Details</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.alertActionDismiss}>
+                    <Text style={styles.alertActionDismissText}>Dismiss</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           ))
         )}

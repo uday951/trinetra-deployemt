@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
 import { StyleSheet } from 'react-native';
-import { Chrome as Home, Shield, Globe, LayoutGrid, Smartphone, CircleAlert as AlertCircle, BookOpen, Lock, MapPin, Bell } from 'lucide-react-native';
+import { Chrome as Home, Shield, Globe, Smartphone, Menu } from 'lucide-react-native';
 
 export default function TabLayout() {
   return (
@@ -16,7 +16,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Welcome',
+          title: 'Home',
           tabBarIcon: ({ color, size }) => (
             <Home size={size-2} color={color} />
           ),
@@ -41,15 +41,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="apps"
-        options={{
-          title: 'Apps',
-          tabBarIcon: ({ color, size }) => (
-            <LayoutGrid size={size-2} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="device"
         options={{
           title: 'Device',
@@ -59,50 +50,28 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="sos"
+        name="more"
         options={{
-          title: 'SOS',
+          title: 'More',
           tabBarIcon: ({ color, size }) => (
-            <AlertCircle size={size-2} color={color} />
+            <Menu size={size-2} color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="education"
-        options={{
-          title: 'Education',
-          tabBarIcon: ({ color, size }) => (
-            <BookOpen size={size-2} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="child-lock"
-        options={{
-          title: 'Child Lock',
-          tabBarIcon: ({ color, size }) => (
-            <Lock size={size-2} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="geofence"
-        options={{
-          title: 'GeoFence',
-          tabBarIcon: ({ color, size }) => (
-            <MapPin size={size-2} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="alerts"
-        options={{
-          title: 'Alerts',
-          tabBarIcon: ({ color, size }) => (
-            <Bell size={size-2} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="spam-calls" options={{ href: null }} />
+      <Tabs.Screen name="apps" options={{ href: null }} />
+      <Tabs.Screen name="sos" options={{ href: null }} />
+      <Tabs.Screen name="education" options={{ href: null }} />
+      <Tabs.Screen name="geofence" options={{ href: null }} />
+      <Tabs.Screen name="alerts" options={{ href: null }} />
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="account" options={{ href: null }} />
+      <Tabs.Screen name="settings" options={{ href: null }} />
+      <Tabs.Screen name="change-password" options={{ href: null }} />
+      <Tabs.Screen name="language" options={{ href: null }} />
+      <Tabs.Screen name="help" options={{ href: null }} />
+      <Tabs.Screen name="about" options={{ href: null }} />
+      <Tabs.Screen name="device-simple" options={{ href: null }} />
     </Tabs>
   );
 }
@@ -112,9 +81,11 @@ const styles = StyleSheet.create({
     height: 60,
     paddingBottom: 5,
     paddingTop: 5,
+    backgroundColor: '#fff',
+    borderTopWidth: 1,
+    borderTopColor: '#f0f0f0',
   },
   tabLabel: {
     fontSize: 10,
-    fontFamily: 'Inter-Medium',
   },
 });

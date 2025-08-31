@@ -1,78 +1,44 @@
 const express = require('express');
 const router = express.Router();
-const Device = require('../models/Device');
+const deviceController = require('../controllers/deviceController');
+const authMiddleware = require('../server').authMiddleware || ((req, res, next) => next()); // fallback if not exported
 
-// Get Device Health
-router.get('/health', (req, res) => {
-  res.json({
-    cpuUsage: Math.random() * 100,
-    memoryUsage: Math.random() * 100,
-    storageUsage: Math.random() * 100,
-    batteryHealth: 85,
-    temperature: 35 + Math.random() * 10,
-    recommendations: [
-      'Clear cache files',
-      'Update system software',
-      'Remove unused apps'
-    ]
-  });
-});
+// Device health and status
+router.get('/health', deviceController.getHealth);
+router.get('/info', deviceController.getDeviceInfo);
+router.get('/security', deviceController.getSecurityStatus);
+router.get('/maintenance', deviceController.getMaintenanceStatus);
 
-// Get Device Location
-router.get('/location', (req, res) => {
-  res.json({
-    latitude: 37.7749 + (Math.random() - 0.5) * 0.01,
-    longitude: -122.4194 + (Math.random() - 0.5) * 0.01,
-    accuracy: 10,
-    timestamp: new Date().toISOString()
-  });
-});
+// Device optimization
+router.post('/optimize', deviceController.optimizeDevice);
 
-// Optimize Device
-router.post('/optimize', (req, res) => {
-  res.json({
-    cpuUsage: 30,
-    memoryUsage: 45,
-    storageUsage: 60,
-    batteryHealth: 85,
-    temperature: 35,
-    recommendations: ['System optimized successfully']
-  });
-});
+// Device control
+router.post('/lock', deviceController.lockDevice);
+router.post('/wipe', deviceController.wipeDevice);
+router.post('/play-sound', deviceController.playSound);
 
-// Lock Device
-router.post('/lock', async (req, res) => {
-  const { deviceId } = req.body;
-  await Device.findOneAndUpdate({ deviceId }, { status: 'locked', lastCommand: 'lock' });
-  res.json({ success: true });
-});
+// Device apps
+router.get('/apps', deviceController.getInstalledApps);
 
-// Wipe Device
-router.post('/wipe', async (req, res) => {
-  const { deviceId } = req.body;
-  await Device.findOneAndUpdate({ deviceId }, { status: 'wiped', lastCommand: 'wipe' });
-  res.json({ success: true });
-});
+// Device location
+router.get('/location', deviceController.getLocation);
+router.post('/location', deviceController.updateLocation);
 
-// Play Sound
-router.post('/play-sound', (req, res) => {
-  res.json({ success: true, message: 'Sound playing on device' });
-});
-
-// Get last location
-router.get('/location/:deviceId', async (req, res) => {
-  const device = await Device.findOne({ deviceId: req.params.deviceId });
-  res.json({ location: device.lastLocation });
-});
-
-// Device posts location
-router.post('/location', async (req, res) => {
-  const { deviceId, lat, lng } = req.body;
-  await Device.findOneAndUpdate(
-    { deviceId },
-    { lastLocation: { lat, lng, updatedAt: new Date() } }
-  );
-  res.json({ success: true });
+// Update device info from mobile app
+router.post('/update', authMiddleware, async (req, res) => {
+  try {
+    const { deviceId, ...deviceData } = req.body;
+    const Device = require('../models/Device');
+    const device = await Device.findOneAndUpdate(
+      { deviceId, owner: req.user._id },
+      { $set: deviceData },
+      { new: true }
+    );
+    if (!device) return res.status(404).json({ error: 'Device not found' });
+    res.json({ success: true, device });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 module.exports = router; 

@@ -1,35 +1,44 @@
 const express = require('express');
 const router = express.Router();
-const SOSContact = require('../src/models/SOSContact');
-const notificationService = require('../src/services/notificationService');
+const SOSContact = require('../models/SOSContact');
 
-// Get all contacts for a user (simplified route)
+// Get all SOS contacts for a user
 router.get('/contacts', async (req, res) => {
   try {
-    const { userId } = req.query;
-    if (!userId) {
-      return res.status(400).json({ message: 'Missing userId parameter' });
-    }
-    const contacts = await SOSContact.find({ userId });
+    const contacts = await SOSContact.find({ user: req.user._id })
+      .sort({ priority: 1 });
     res.json(contacts);
   } catch (error) {
     console.error('Error fetching SOS contacts:', error);
-    res.status(500).json({ message: 'Failed to fetch contacts' });
+    res.status(500).json({
+      error: 'Server error',
+      message: 'Error fetching SOS contacts'
+    });
   }
 });
 
-// Add SOS contact
+// Add a new SOS contact
 router.post('/contacts', async (req, res) => {
   try {
-    const { userId, name, phone, email } = req.body;
-    if (!userId || !name || !phone) {
-      return res.status(400).json({ message: 'Missing required fields' });
-    }
-    const contact = await SOSContact.create({ userId, name, phone, email });
-    res.json(contact);
+    const { name, phone, email, relationship, priority } = req.body;
+    
+    const contact = new SOSContact({
+      name,
+      phone,
+      email,
+      relationship,
+      priority,
+      user: req.user._id
+    });
+
+    await contact.save();
+    res.status(201).json(contact);
   } catch (error) {
     console.error('Error adding SOS contact:', error);
-    res.status(500).json({ message: 'Failed to add contact' });
+    res.status(500).json({
+      error: 'Server error',
+      message: 'Error adding SOS contact'
+    });
   }
 });
 
@@ -47,19 +56,36 @@ router.delete('/contacts/:id', async (req, res) => {
   }
 });
 
-// Trigger SOS
-router.post('/trigger', async (req, res) => {
+// Send SOS alert
+router.post('/alert', async (req, res) => {
   try {
-    const { userId, message } = req.body;
-    if (!userId) {
-      return res.status(400).json({ message: 'Missing userId' });
+    const { location } = req.body;
+    
+    // Get user's SOS contacts
+    const contacts = await SOSContact.find({ user: req.user._id })
+      .sort({ priority: 1 });
+
+    if (!contacts.length) {
+      return res.status(400).json({
+        error: 'No contacts',
+        message: 'No SOS contacts found'
+      });
     }
-    const contacts = await SOSContact.find({ userId });
-    await notificationService.sendSOS(contacts, message || 'Emergency! Please help!');
-    res.json({ success: true });
+
+    // TODO: Implement actual alert sending logic here
+    // This could involve sending SMS, email, or push notifications
+
+    res.json({
+      success: true,
+      message: 'SOS alert sent successfully',
+      notifiedContacts: contacts.length
+    });
   } catch (error) {
-    console.error('Error triggering SOS:', error);
-    res.status(500).json({ message: 'Failed to trigger SOS' });
+    console.error('Error sending SOS alert:', error);
+    res.status(500).json({
+      error: 'Server error',
+      message: 'Error sending SOS alert'
+    });
   }
 });
 

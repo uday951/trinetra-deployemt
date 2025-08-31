@@ -1,120 +1,243 @@
-import express, { Request, Response } from 'express';
-import { Device } from '../models/Device';
-import { WebSocketServer } from '../services/websocket';
-import { Types } from 'mongoose';
-
-let websocketServer: WebSocketServer;
-
-export const initWebSocket = (server: any) => {
-  websocketServer = new WebSocketServer(server);
-};
+import express from 'express';
+import { DeviceLocation } from '../models/DeviceLocation';
+import { AntiTheftAction } from '../models/AntiTheftAction';
 
 const router = express.Router();
 
-// Lock device
-router.post('/lock', async (req: Request, res: Response) => {
+// Store device location
+router.post('/location', async (req, res) => {
   try {
-    const { deviceId } = req.body;
-    
-    if (!deviceId) {
-      return res.status(400).json({ error: 'Device ID is required' });
+    const { latitude, longitude, timestamp, accuracy, deviceId } = req.body;
+
+    const location = new DeviceLocation({
+      deviceId,
+      latitude,
+      longitude,
+      timestamp: new Date(timestamp),
+      accuracy,
+      createdAt: new Date(),
+    });
+
+    await location.save();
+
+    res.json({ 
+      success: true, 
+      message: 'Location updated successfully',
+      locationId: location._id 
+    });
+  } catch (error) {
+    console.error('Error storing location:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to store location' 
+    });
+  }
+});
+
+// Get device location history
+router.get('/location/:deviceId', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { limit = 50 } = req.query;
+
+    const locations = await DeviceLocation
+      .find({ deviceId })
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit as string));
+
+    res.json({
+      success: true,
+      locations,
+      count: locations.length
+    });
+  } catch (error) {
+    console.error('Error fetching locations:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch locations' 
+    });
+  }
+});
+
+// Get latest device location
+router.get('/location/:deviceId/latest', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+
+    const location = await DeviceLocation
+      .findOne({ deviceId })
+      .sort({ timestamp: -1 });
+
+    if (!location) {
+      return res.status(404).json({
+        success: false,
+        message: 'No location found for device'
+      });
     }
 
-    const device = await Device.findById(deviceId);
-    if (!device) {
-      return res.status(404).json({ error: 'Device not found' });
-    }
+    res.json({
+      success: true,
+      location
+    });
+  } catch (error) {
+    console.error('Error fetching latest location:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch latest location' 
+    });
+  }
+});
 
-    device.status = 'locked';
-    await device.save();
-    
-    // Emit websocket event
-    websocketServer.emitDeviceLock(deviceId);
-    
-    res.json({ success: true });
+// Lock device
+router.post('/lock', async (req, res) => {
+  try {
+    const { deviceId, timestamp } = req.body;
+
+    const action = new AntiTheftAction({
+      deviceId,
+      action: 'lock',
+      timestamp: new Date(timestamp),
+      status: 'pending',
+      createdAt: new Date(),
+    });
+
+    await action.save();
+
+    // Here you would implement the actual device locking logic
+    // This could involve sending a push notification or using device management APIs
+
+    res.json({
+      success: true,
+      message: 'Device lock command sent',
+      actionId: action._id
+    });
   } catch (error) {
     console.error('Error locking device:', error);
-    res.status(500).json({ error: 'Failed to lock device' });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to lock device' 
+    });
   }
 });
 
 // Wipe device
-router.post('/wipe', async (req: Request, res: Response) => {
+router.post('/wipe', async (req, res) => {
   try {
-    const { deviceId } = req.body;
-    
-    if (!deviceId) {
-      return res.status(400).json({ error: 'Device ID is required' });
-    }
+    const { deviceId, timestamp } = req.body;
 
-    const device = await Device.findById(deviceId);
-    if (!device) {
-      return res.status(404).json({ error: 'Device not found' });
-    }
+    const action = new AntiTheftAction({
+      deviceId,
+      action: 'wipe',
+      timestamp: new Date(timestamp),
+      status: 'pending',
+      createdAt: new Date(),
+    });
 
-    device.status = 'wiped';
-    await device.save();
-    
-    // Emit websocket event
-    websocketServer.emitDeviceWipe(deviceId);
-    
-    res.json({ success: true });
-  } catch (error) {
-    console.error('Error wiping device:', error);
-    res.status(500).json({ error: 'Failed to wipe device' });
-  }
-});
+    await action.save();
 
-// Get device location
-router.get('/location/:deviceId', async (req: Request, res: Response) => {
-  try {
-    const { deviceId } = req.params;
-    
-    const device = await Device.findById(deviceId);
-    if (!device) {
-      return res.status(404).json({ error: 'Device not found' });
-    }
+    // Here you would implement the actual device wiping logic
+    // This is a critical operation that should have additional security measures
 
-    res.json({ 
-      location: device.location ? {
-        lat: device.location.latitude,
-        lng: device.location.longitude
-      } : null 
+    res.json({
+      success: true,
+      message: 'Device wipe command sent',
+      actionId: action._id
     });
   } catch (error) {
-    console.error('Error getting device location:', error);
-    res.status(500).json({ error: 'Failed to get device location' });
+    console.error('Error wiping device:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to wipe device' 
+    });
   }
 });
 
-// Update device location
-router.post('/location', async (req: Request, res: Response) => {
+// Sound alarm
+router.post('/alarm', async (req, res) => {
   try {
-    const { deviceId, lat, lng } = req.body;
-    
-    if (!deviceId || !lat || !lng) {
-      return res.status(400).json({ error: 'Missing required parameters' });
-    }
+    const { deviceId, timestamp } = req.body;
 
-    const device = await Device.findById(deviceId);
-    if (!device) {
-      return res.status(404).json({ error: 'Device not found' });
-    }
+    const action = new AntiTheftAction({
+      deviceId,
+      action: 'alarm',
+      timestamp: new Date(timestamp),
+      status: 'pending',
+      createdAt: new Date(),
+    });
 
-    device.location = {
-      latitude: lat,
-      longitude: lng,
-      lastUpdated: new Date()
-    };
-    await device.save();
-    
-    // Emit websocket event
-    websocketServer.emitDeviceLocation(deviceId);
-    
-    res.json({ success: true });
+    await action.save();
+
+    // Here you would implement the actual alarm logic
+    // This could involve playing a loud sound or triggering device notifications
+
+    res.json({
+      success: true,
+      message: 'Alarm command sent',
+      actionId: action._id
+    });
   } catch (error) {
-    console.error('Error updating device location:', error);
-    res.status(500).json({ error: 'Failed to update device location' });
+    console.error('Error sounding alarm:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to sound alarm' 
+    });
+  }
+});
+
+// Get device actions history
+router.get('/actions/:deviceId', async (req, res) => {
+  try {
+    const { deviceId } = req.params;
+    const { limit = 20 } = req.query;
+
+    const actions = await AntiTheftAction
+      .find({ deviceId })
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit as string));
+
+    res.json({
+      success: true,
+      actions,
+      count: actions.length
+    });
+  } catch (error) {
+    console.error('Error fetching actions:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch actions' 
+    });
+  }
+});
+
+// Update action status
+router.patch('/actions/:actionId/status', async (req, res) => {
+  try {
+    const { actionId } = req.params;
+    const { status } = req.body;
+
+    const action = await AntiTheftAction.findByIdAndUpdate(
+      actionId,
+      { status, updatedAt: new Date() },
+      { new: true }
+    );
+
+    if (!action) {
+      return res.status(404).json({
+        success: false,
+        message: 'Action not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      action
+    });
+  } catch (error) {
+    console.error('Error updating action status:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to update action status' 
+    });
   }
 });
 

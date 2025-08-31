@@ -65,22 +65,3 @@ export function useDeviceInfo() {
 export function useSos() {
   return useApi(api.sosApi.sendSos);
 }
-
-export function useVpn() {
-  const connect = useApi(api.vpnApi.connectVpn);
-  const disconnect = useApi(api.vpnApi.disconnectVpn);
-  const getStatus = useApi(api.vpnApi.getStatus);
-  
-  return {
-    connect: connect.execute,
-    disconnect: disconnect.execute,
-    getStatus: getStatus.execute,
-    isConnecting: connect.isLoading,
-    isDisconnecting: disconnect.isLoading,
-    connectError: connect.error,
-    disconnectError: disconnect.error,
-    status: getStatus.data,
-    statusError: getStatus.error,
-    isStatusLoading: getStatus.isLoading,
-  };
-}

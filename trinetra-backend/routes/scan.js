@@ -44,6 +44,7 @@ router.use((req, res, next) => {
   next();
 });
 
+// Ensure the scan route is available at POST /api/security/scan
 router.post('/', scanApp);
 
 // Scan file for malware

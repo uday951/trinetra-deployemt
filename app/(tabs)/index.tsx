@@ -1,10 +1,75 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import Header from '@/components/Header';
 import SectionTitle from '@/components/SectionTitle';
-import { Shield, Lock, Bell, CircleAlert as AlertCircle, Smartphone } from 'lucide-react-native';
+import { Shield, Bell, CircleAlert as AlertCircle, Smartphone } from 'lucide-react-native';
+import { router } from 'expo-router';
 
 export default function HomeScreen() {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [securityStatus, setSecurityStatus] = useState('Protected');
+  const [lastScanTime, setLastScanTime] = useState(new Date());
+  const [protectionActive, setProtectionActive] = useState(true);
+
+  useEffect(() => {
+    // Update time every second
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    // Update security status every 30 seconds
+    const securityInterval = setInterval(() => {
+      updateSecurityStatus();
+    }, 30000);
+
+    // Initial security check
+    updateSecurityStatus();
+
+    return () => {
+      clearInterval(timeInterval);
+      clearInterval(securityInterval);
+    };
+  }, []);
+
+  const updateSecurityStatus = async () => {
+    try {
+      // Simulate real-time security check
+      const isProtected = Math.random() > 0.1; // 90% chance protected
+      setSecurityStatus(isProtected ? 'Protected' : 'At Risk');
+      setProtectionActive(isProtected);
+      
+      if (Math.random() > 0.7) { // 30% chance to update scan time
+        setLastScanTime(new Date());
+      }
+    } catch (error) {
+      console.error('Security status update failed:', error);
+    }
+  };
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const formatDate = (date: Date) => {
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+    
+    if (isToday) {
+      return `Today at ${formatTime(date)}`;
+    } else {
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+  };
   return (
     <View style={styles.container}>
       <Header title="Trinetra Security" />
@@ -18,37 +83,49 @@ export default function HomeScreen() {
           </View>
           
           <View style={styles.securityStatus}>
-            <View style={[styles.statusIndicator, styles.statusGood]}>
-              <Text style={styles.statusText}>Protected</Text>
+            <View style={[
+              styles.statusIndicator, 
+              protectionActive ? styles.statusGood : styles.statusRisk
+            ]}>
+              <Text style={[
+                styles.statusText,
+                { color: protectionActive ? '#2e7d32' : '#d32f2f' }
+              ]}>
+                {securityStatus}
+              </Text>
             </View>
           </View>
           
           <Text style={styles.securityDetails}>
-            Your device is currently protected. Last scan: Today at 08:15 AM
+            Your device is currently {securityStatus.toLowerCase()}. Last scan: {formatDate(lastScanTime)}
+          </Text>
+          
+          <Text style={styles.liveTime}>
+            Live Status • {formatTime(currentTime)}
           </Text>
         </View>
         
         <Text style={styles.sectionHeader}>Quick Actions</Text>
         
         <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.actionCard}>
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/security')}>
             <Shield size={32} color="#4169E1" />
-            <Text style={styles.actionText}>Scan Device</Text>
+            <Text style={styles.actionText}>Security Scan</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionCard}>
-            <Lock size={32} color="#4169E1" />
-            <Text style={styles.actionText}>Child Lock</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.actionCard}>
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/alerts')}>
             <Bell size={32} color="#4169E1" />
             <Text style={styles.actionText}>Alerts</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.actionCard}>
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/sos')}>
             <AlertCircle size={32} color="#4169E1" />
             <Text style={styles.actionText}>SOS</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/device')}>
+            <Smartphone size={32} color="#4169E1" />
+            <Text style={styles.actionText}>Device Info</Text>
           </TouchableOpacity>
         </View>
         
@@ -64,7 +141,7 @@ export default function HomeScreen() {
             Locate, lock, or wipe your device remotely in case of theft.
           </Text>
           
-          <TouchableOpacity style={styles.protectionButton}>
+          <TouchableOpacity style={styles.protectionButton} onPress={() => router.push('/anti-theft')}>
             <Text style={styles.buttonText}>Configure</Text>
           </TouchableOpacity>
         </View>
@@ -150,6 +227,9 @@ const styles = StyleSheet.create({
   statusGood: {
     backgroundColor: '#e6f7eb',
   },
+  statusRisk: {
+    backgroundColor: '#ffebee',
+  },
   statusText: {
     fontSize: 14,
     fontFamily: 'Inter-Medium',
@@ -160,6 +240,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter-Regular',
     color: '#666',
     lineHeight: 20,
+    marginBottom: 8,
+  },
+  liveTime: {
+    fontSize: 12,
+    fontFamily: 'Inter-Medium',
+    color: '#4169E1',
   },
   sectionHeader: {
     fontSize: 18,

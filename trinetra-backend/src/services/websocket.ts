@@ -1,8 +1,10 @@
 import { Server } from 'socket.io';
-import { Server as HttpServer, createServer } from 'http';
+import { Server as HttpServer } from 'http';
 import { Device, IDevice } from '../models/Device';
 import { Geofence } from '../models/Geofence';
 import { Types } from 'mongoose';
+import { WebSocket, WebSocketServer as WSServer } from 'ws';
+import SecurityMonitorService from './securityMonitor';
 
 interface DeviceLocationData {
   deviceId: string;
@@ -20,14 +22,19 @@ interface GeofenceViolationData {
 export class WebSocketServer {
   private io: Server;
   private clients: Map<string, string[]> = new Map(); // userId -> socketIds map
+  private wss: WSServer;
+  private securityMonitor: SecurityMonitorService;
 
   constructor(server: HttpServer) {
     this.io = new Server(server, {
       cors: {
-        origin: "http://localhost:19006", // Expo development server
-        methods: ["GET", "POST"]
+        origin: '*',
+        methods: ['GET', 'POST']
       }
     });
+
+    this.wss = new WSServer({ server });
+    this.securityMonitor = SecurityMonitorService.getInstance();
 
     this.setupListeners();
   }
@@ -96,6 +103,29 @@ export class WebSocketServer {
         }
       });
     });
+
+    this.wss.on('connection', (ws: WebSocket) => {
+      console.log('New WebSocket connection established');
+
+      ws.on('message', (message: string) => {
+        try {
+          const data = JSON.parse(message.toString());
+          if (data.type === 'subscribe_security') {
+            this.securityMonitor.addClient(ws);
+          }
+        } catch (error) {
+          console.error('Error processing WebSocket message:', error);
+        }
+      });
+
+      ws.on('close', () => {
+        console.log('WebSocket connection closed');
+      });
+
+      ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+      });
+    });
   }
 
   public emitDeviceLock(deviceId: string) {
@@ -108,6 +138,14 @@ export class WebSocketServer {
 
   public emitDeviceLocation(deviceId: string) {
     this.io.emit('device-location-update', { deviceId });
+  }
+
+  public broadcast(message: any) {
+    this.wss.clients.forEach((client) => {
+      if (client.readyState === WSServer.OPEN) {
+        client.send(JSON.stringify(message));
+      }
+    });
   }
 }
 

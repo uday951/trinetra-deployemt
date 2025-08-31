@@ -7,6 +7,8 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs';
+import { Router } from 'express';
+import SecurityMonitorService from '../../services/securityMonitor';
 
 const execAsync = promisify(exec);
 
@@ -15,6 +17,7 @@ config();
 const router = express.Router();
 const ABUSEIPDB_API_KEY = process.env.ABUSEIPDB_API_KEY;
 const ABUSEIPDB_API_URL = 'https://api.abuseipdb.com/api/v2';
+const securityMonitor = SecurityMonitorService.getInstance();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -254,6 +257,78 @@ router.get('/scan-history', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error fetching scan history:', error);
     res.status(500).json({ error: 'Error fetching scan history' });
+  }
+});
+
+// Security Monitoring Routes
+router.post('/monitor/start', (req: Request, res: Response) => {
+  try {
+    const { interval } = req.body;
+    securityMonitor.startMonitoring(interval);
+    res.json({ 
+      status: 'success',
+      message: 'Monitoring started',
+      monitoringStatus: securityMonitor.getMonitoringStatus() 
+    });
+  } catch (error) {
+    console.error('Error starting monitoring:', error);
+    res.status(500).json({ 
+      status: 'error',
+      message: 'Failed to start monitoring',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+router.post('/monitor/stop', (req: Request, res: Response) => {
+  try {
+    securityMonitor.stopMonitoring();
+    res.json({ 
+      status: 'success',
+      message: 'Monitoring stopped',
+      monitoringStatus: securityMonitor.getMonitoringStatus() 
+    });
+  } catch (error) {
+    console.error('Error stopping monitoring:', error);
+    res.status(500).json({ 
+      status: 'error',
+      message: 'Failed to stop monitoring',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+router.get('/monitor/status', (req: Request, res: Response) => {
+  try {
+    const status = securityMonitor.getMonitoringStatus();
+    res.json({ 
+      status: 'success',
+      data: status 
+    });
+  } catch (error) {
+    console.error('Error getting monitoring status:', error);
+    res.status(500).json({ 
+      status: 'error',
+      message: 'Failed to get monitoring status',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+router.get('/monitor/events', (req: Request, res: Response) => {
+  try {
+    const events = securityMonitor.getSecurityEvents();
+    res.json({ 
+      status: 'success',
+      data: events 
+    });
+  } catch (error) {
+    console.error('Error getting security events:', error);
+    res.status(500).json({ 
+      status: 'error',
+      message: 'Failed to get security events',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 });
 

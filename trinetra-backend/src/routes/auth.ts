@@ -203,4 +203,57 @@ router.post('/device/register', auth, async (req: AuthRequest, res: Response) =>
   }
 });
 
+// Change password
+router.post('/change-password', auth, async (req: AuthRequest, res: Response) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user?._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    // Validate required fields
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        message: 'Missing required fields',
+        required: ['currentPassword', 'newPassword']
+      });
+    }
+
+    // Validate new password length
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: 'New password must be at least 6 characters long'
+      });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check current password
+    const isMatch = await user.comparePassword(currentPassword);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    console.log('Password changed successfully for user:', user.email);
+
+    res.json({ message: 'Password changed successfully' });
+  } catch (error: any) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      message: 'Error changing password',
+      error: error.message
+    });
+  }
+});
+
 export default router; 
