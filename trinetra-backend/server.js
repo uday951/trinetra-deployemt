@@ -198,6 +198,15 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// Self ping endpoint for Render
+app.get('/self-ping', (req, res) => {
+  res.json({ 
+    status: 'pong', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // Add missing endpoint for frontend compatibility
 app.get('/api/apps/installed', (req, res) => {
   // Redirect to the existing apps route
